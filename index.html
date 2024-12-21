@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Falling Objects Game with Increasing Difficulty</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #87CEEB;
+    }
+
+    #basket {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      width: 150px;
+      height: 120px;
+      background-image: url('basket.png'); /* Замените на свой файл с изображением корзины */
+      background-size: cover;
+      background-position: center;
+      transform: translateX(-50%);
+    }
+
+    .fallingObject {
+      position: absolute;
+      width: 50px; /* Размеры объектов */
+      height: 50px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      color: white;
+    }
+
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      color: white;
+      display: none;
+    }
+
+    #endGif {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 90%;
+      max-height: 90%;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="score">Score: 0</div>
+    <div id="gameOver">Game Over</div>
+    <img id="endGif" src="game-over.gif" alt="Game Over GIF">
+    <div id="basket"></div>
+  </div>
+
+  <script>
+    const gameContainer = document.getElementById('gameContainer');
+    const basket = document.getElementById('basket');
+    const scoreDisplay = document.getElementById('score');
+    const gameOverDisplay = document.getElementById('gameOver');
+    const endGif = document.getElementById('endGif');
+
+    let score = 0;
+    let missed = 0;
+    let basketPosition = window.innerWidth / 2;
+    let fallingObjects = [];
+    let gameOver = false;
+    let spawnInterval = 1000;
+    let fallingSpeed = 5;
+
+    const objectImages = [
+      'falling-object1.png',
+      'falling-object2.png',
+      'falling-object3.png',
+      'falling-object4.png',
+      'falling-object5.png',
+    ];
+
+    let isTouching = false; // Флаг для проверки, удерживается ли касание
+
+    // Начало движения корзины при касании экрана
+    document.addEventListener('touchstart', (e) => {
+      if (gameOver) return;
+      isTouching = true;
+      basketPosition = e.touches[0].clientX; // Получаем позицию первого касания
+      basket.style.left = `${basketPosition - basket.offsetWidth / 2}px`;
+    });
+
+    // Окончание движения корзины при отпускании касания
+    document.addEventListener('touchend', () => {
+      isTouching = false;
+    });
+
+    // Двигаем корзину при движении пальца
+    document.addEventListener('touchmove', (e) => {
+      if (gameOver || !isTouching) return;
+      basketPosition = e.touches[0].clientX; // Получаем позицию первого касания
+      basket.style.left = `${basketPosition - basket.offsetWidth / 2}px`;
+    });
+
+    // Для десктопа, с использованием мыши
+    document.addEventListener('mousedown', (e) => {
+      if (gameOver) return;
+      isTouching = true;
+      basketPosition = e.clientX;
+      basket.style.left = `${basketPosition - basket.offsetWidth / 2}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      isTouching = false;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (gameOver || !isTouching) return;
+      basketPosition = e.clientX;
+      basket.style.left = `${basketPosition - basket.offsetWidth / 2}px`;
+    });
+
+    // Создание падающих объектов
+    function createFallingObject() {
+      if (gameOver) return;
+
+      const fallingObject = document.createElement('div');
+      fallingObject.className = 'fallingObject';
+      fallingObject.style.left = `${Math.random() * (window.innerWidth - 50)}px`; // Adjust for object width
+      fallingObject.style.top = '0px';
+
+      // Присваиваем случайное изображение объекту
+      const randomImage = objectImages[Math.floor(Math.random() * objectImages.length)];
+      fallingObject.style.backgroundImage = `url(${randomImage})`;
+
+      gameContainer.appendChild(fallingObject);
+      fallingObjects.push(fallingObject);
+    }
+
+    // Обновление состояния игры
+    function updateGame() {
+      fallingObjects.forEach((obj, index) => {
+        const currentTop = parseFloat(obj.style.top);
+        obj.style.top = `${currentTop + fallingSpeed}px`;
+
+        const basketRect = basket.getBoundingClientRect();
+        const objRect = obj.getBoundingClientRect();
+
+        // Проверка, пойман ли объект
+        if (
+          objRect.bottom >= basketRect.top &&
+          objRect.left >= basketRect.left &&
+          objRect.right <= basketRect.right
+        ) {
+          score++;
+          scoreDisplay.textContent = `Score: ${score}`;
+          obj.remove();
+          fallingObjects.splice(index, 1);
+
+          // Увеличение сложности в зависимости от счета
+          if (score % 10 === 0) {
+            increaseDifficulty();
+          }
+        }
+
+        // Проверка, пропущен ли объект
+        if (currentTop > window.innerHeight) {
+          missed++;
+          obj.remove();
+          fallingObjects.splice(index, 1);
+
+          if (missed >= 3) {
+            endGame();
+          }
+        }
+      });
+    }
+
+    // Увеличение сложности
+    function increaseDifficulty() {
+      fallingSpeed += 1; // Увеличение скорости падения объектов
+      spawnInterval = Math.max(200, spawnInterval - 100); // Уменьшение интервала появления, но не меньше 200мс
+      resetSpawnLoop();
+    }
+
+    // Завершение игры
+    function endGame() {
+      gameOver = true;
+      gameOverDisplay.style.display = 'none'; // Скрыть текст "Game Over"
+      endGif.style.display = 'block'; // Показать .gif "Game Over"
+
+      // Удаляем все объекты после проигрыша
+      fallingObjects.forEach(obj => obj.remove());
+      fallingObjects = []; // Очищаем массив объектов
+      basket.remove();
+
+      // Останавливаем создание объектов
+      clearInterval(spawnLoop);
+    }
+
+    // Игровой цикл
+    function gameLoop() {
+      if (!gameOver) {
+        updateGame();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // Цикл появления объектов
+    let spawnLoop = setInterval(createFallingObject, spawnInterval);
+
+    function resetSpawnLoop() {
+      clearInterval(spawnLoop);
+      spawnLoop = setInterval(createFallingObject, spawnInterval);
+    }
+
+    // Запуск игры
+    gameLoop();
+  </script>
+</body>
+</html>
+
